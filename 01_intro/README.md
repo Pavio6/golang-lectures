@@ -49,3 +49,15 @@
 * Язык программирования Go, Алан А. А. Донован, Брайан У. Керниган
 * Go на практике, Matt Butcher, Мэтт Фарина Мэтт
 * Программирование на Go. Разработка приложений XXI века, Марк Саммерфильд
+
+## Обновления языка
+
+* <https://antonz.org/on-go-tours/> - Точка входа в интерактивные туры по новым версиям Go, начиная с 1.22 по 1.26 включительно
+* <https://victoriametrics.com/blog/go-1-27/> - Интерактивный тур по Go 1.27
+
+## Как всё устроено?
+
+* <https://habr.com/ru/articles/963182/> - Система типов и интерфейсы в Go (статическая типизация)
+* <https://habr.com/ru/companies/yadro/articles/874480> - Устройство Slice в Go
+* <https://habr.com/ru/companies/avito/articles/774618> - Устройство Map в Go (бакеты, до 1.23 включительно)
+* <https://habr.com/ru/companies/oleg-bunin/articles/934906/> - Устройство Map в Go (Swiss Tables, 1.24+)
