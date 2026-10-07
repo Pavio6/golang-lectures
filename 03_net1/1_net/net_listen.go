@@ -7,6 +7,12 @@ import (
 	"net"
 )
 
+// Подключиться к серверу:
+// nc 127.0.0.1 8080
+
+// Найти процесс, использующий порт:
+// lsof -i :8080
+
 func handleConnection(conn net.Conn) {
 	name := conn.RemoteAddr().String()
 

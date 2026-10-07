@@ -34,6 +34,12 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 func main() {
 	http.HandleFunc("/", mainPage)
 
+	// Since go1.22:
+	// http.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+	// 	w.Write(loginFormTmpl)
+	// })
+	// http.HandleFunc("POST /", mainPage)
+
 	fmt.Println("starting server at :8080")
 	http.ListenAndServe(":8080", nil)
 }
