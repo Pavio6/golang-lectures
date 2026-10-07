@@ -10,10 +10,10 @@ import (
 func worker(ctx context.Context, workerNum int, out chan<- int) {
 	waitTime := time.Duration(rand.Intn(100)+10) * time.Millisecond
 	fmt.Println(workerNum, "студент ", waitTime)
+
 	select {
 	case <-ctx.Done():
 		fmt.Println("студент", workerNum, "не успел придумать вопрос")
-		return
 	case <-time.After(waitTime):
 		fmt.Println("студент", workerNum, "придумал вопрос")
 		out <- workerNum
@@ -30,6 +30,7 @@ func main() {
 	}
 
 	totalFound := 0
+
 LOOP:
 	for {
 		select {

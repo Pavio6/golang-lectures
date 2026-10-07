@@ -22,25 +22,28 @@ func startWorker(in int, wg *sync.WaitGroup, quotaCh chan struct{}) {
 
 	quotaCh <- struct{}{}
 	defer func() { <-quotaCh }()
+
 	for j := 0; j < iterationsNum; j++ {
 		fmt.Println(formatWork(in, j))
 
 		// if j%2 == 0 {
-		// 	<-quotaCh             // ratelim.go, возвращаем слот
-		// 	quotaCh <- struct{}{} // ratelim.go, берём слот
+		// 	<-quotaCh             // Возвращаем слот
+		// 	quotaCh <- struct{}{} // Берём слот
 		// }
 
-		runtime.Gosched() // даём поработать другим горутинам
+		runtime.Gosched() // Даём поработать другим горутинам
 	}
 }
 
 func main() {
 	wg := &sync.WaitGroup{}
 	quotaCh := make(chan struct{}, quotaLimit)
+
 	for i := 0; i < goroutinesNum; i++ {
 		wg.Add(1)
 		go startWorker(i, wg, quotaCh)
 	}
+
 	time.Sleep(time.Millisecond)
 	wg.Wait()
 }
