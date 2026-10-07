@@ -13,6 +13,7 @@ var idToUsername = map[int]string{
 func main() {
 	var id int
 	for {
+		// fmt.Scanf("%d\n", &id)
 		_, err := fmt.Scanf("%d\n", &id)
 		if err != nil {
 			fmt.Printf("err scanf %v\n", err)

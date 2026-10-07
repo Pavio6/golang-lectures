@@ -7,6 +7,7 @@ import (
 
 func main() {
 	result := make(chan string)
+
 	go func(out chan<- string) {
 		time.Sleep(1 * time.Second)
 		log.Println("async operation ready, return result")
@@ -14,7 +15,7 @@ func main() {
 	}(result)
 
 	time.Sleep(2 * time.Second)
-	log.Println("some userful work done")
+	log.Println("some useful work done")
 
 	opStatus := <-result
 	log.Println("main goroutine:", opStatus)

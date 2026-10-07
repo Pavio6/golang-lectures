@@ -8,7 +8,7 @@ import (
 func longSQLQuery() chan bool {
 	ch := make(chan bool, 1)
 	go func() {
-		time.Sleep(2 * time.Second)
+		time.Sleep(2 * time.Second) // 4 * time.Second
 		ch <- true
 	}()
 	return ch
@@ -19,9 +19,9 @@ func main() {
 	timer := time.NewTimer(3 * time.Second)
 	select {
 	case <-timer.C:
-		fmt.Println("timer.C timeout happend")
+		fmt.Println("timer.C timeout happened")
 	case result := <-longSQLQuery():
-		// Освобождаем ресурс
+		// Освобождаем ресурс (но с Go 1.23 сборщик мусора сам умеет освобождать неиспользуемые таймеры)
 		if !timer.Stop() {
 			<-timer.C
 		}

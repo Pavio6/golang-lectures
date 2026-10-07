@@ -11,6 +11,7 @@ import (
 func main() {
 	var counters = map[int]int{}
 	mu := &sync.RWMutex{}
+
 	for i := 0; i < 5; i++ {
 		go func(counters map[int]int, th int, mu *sync.RWMutex) {
 			for j := 0; j < 5; j++ {
@@ -26,6 +27,7 @@ func main() {
 			}
 		}(counters, i, mu)
 	}
+
 	time.Sleep(100 * time.Millisecond)
 	mu.RLock()
 	fmt.Println("counters result", counters)

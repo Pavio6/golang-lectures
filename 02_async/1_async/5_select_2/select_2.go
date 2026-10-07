@@ -8,6 +8,7 @@ func main() {
 	ch1 := make(chan int, 2)
 	ch1 <- 1
 	ch1 <- 2
+
 	ch2 := make(chan int, 2)
 	ch2 <- 3
 

@@ -25,19 +25,20 @@ func main() {
 		select {
 		case v1, ok := <-ch1:
 			if !ok {
-				fmt.Println("ch1 closed")
-				ch1 = nil
+				fmt.Print("ch1 is closed; ")
+				ch1 = nil // Try to comment it
 			}
 			fmt.Println("chan1 val", v1)
 		case v2, ok := <-ch2:
 			if !ok {
-				fmt.Println("ch2 closed")
+				fmt.Print("ch2 is closed; ")
 				ch2 = nil
 			}
 			fmt.Println("chan2 val", v2)
 		}
+
 		if ch1 == nil && ch2 == nil {
-			fmt.Print("Two channels closed")
+			fmt.Print("Both channels are closed")
 			break
 		}
 	}
