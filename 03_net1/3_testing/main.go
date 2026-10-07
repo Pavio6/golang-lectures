@@ -17,7 +17,7 @@ var data = map[string][]byte{
 func GetUser(key string) (*User, error) {
 	jsonStr, ok := data[key]
 	if !ok {
-		return nil, fmt.Errorf("user doesnt exist")
+		return nil, fmt.Errorf("user doesn't exist")
 	}
 
 	user := &User{}
