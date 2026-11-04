@@ -10,6 +10,7 @@
 
 Роутеры:
 
+* <https://pkg.go.dev/net/http#ServeMux> - стандартный роутер; шаблоны с методами и параметрами путей доступны с Go 1.22
 * <https://github.com/gorilla/mux> - один из компонентов gorillatoolkit, из которых можно собрать себе полноценный фреймворк
 * <https://github.com/julienschmidt/httprouter>
 * <https://github.com/valyala/fasthttp>
@@ -24,6 +25,7 @@
 
 Логирование:
 
+* <https://pkg.go.dev/log/slog> - structured logging в стандартной библиотеке
 * <https://github.com/uber-go/zap>
 * <https://github.com/sirupsen/logrus>
 * <https://www.youtube.com/watch?v=c_MPDg2C9tg> - видео по структурному логирования
@@ -35,13 +37,10 @@
 * <https://github.com/gobwas/ws> - библиотека для низкоуровневой работы в веб-сокетами от Mail.ru, которая позволяет существенно сэкономить на памяти сервера
 * <https://github.com/olahol/melody>
 
-Управление зависимостями:
+Модули и зависимости:
 
-* <https://github.com/golang/dep>
-* <https://hackernoon.com/using-go-dep-as-a-project-maintainer-641d1f3006d7>
-* <https://about.sourcegraph.com/go/the-new-era-of-go-package-management/>
-* <https://medium.freecodecamp.org/an-intro-to-dep-how-to-manage-your-golang-project-dependencies-7b07d84e7ba5>
-* <https://blog.gopheracademy.com/advent-2015/vendor-folder/>
+* <https://go.dev/doc/modules/managing-dependencies>
+* <https://go.dev/ref/mod>
 
 Безопасность:
 

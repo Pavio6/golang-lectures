@@ -1,8 +1,9 @@
 package items
 
-// WARNING! completly unsafe in multi-goroutine use, need add mutexes
+import "sync"
 
 type ItemMemoryRepository struct {
+	mu     sync.RWMutex
 	lastID uint32
 	data   []*Item
 }
@@ -16,26 +17,45 @@ func NewMemoryRepo() *ItemMemoryRepository {
 }
 
 func (repo *ItemMemoryRepository) GetAll() ([]*Item, error) {
-	return repo.data, nil
+	repo.mu.RLock()
+	defer repo.mu.RUnlock()
+
+	items := make([]*Item, len(repo.data))
+	for i, item := range repo.data {
+		itemCopy := *item
+		items[i] = &itemCopy
+	}
+	return items, nil
 }
 
 func (repo *ItemMemoryRepository) GetByID(id uint32) (*Item, error) {
+	repo.mu.RLock()
+	defer repo.mu.RUnlock()
+
 	for _, item := range repo.data {
 		if item.ID == id {
-			return item, nil
+			itemCopy := *item
+			return &itemCopy, nil
 		}
 	}
 	return nil, nil
 }
 
 func (repo *ItemMemoryRepository) Add(item *Item) (uint32, error) {
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+
 	repo.lastID++
 	item.ID = repo.lastID
-	repo.data = append(repo.data, item)
+	itemCopy := *item
+	repo.data = append(repo.data, &itemCopy)
 	return repo.lastID, nil
 }
 
 func (repo *ItemMemoryRepository) Update(newItem *Item) (bool, error) {
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+
 	for _, item := range repo.data {
 		if item.ID != newItem.ID {
 			continue
@@ -48,6 +68,9 @@ func (repo *ItemMemoryRepository) Update(newItem *Item) (bool, error) {
 }
 
 func (repo *ItemMemoryRepository) Delete(id uint32) (bool, error) {
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+
 	i := -1
 	for idx, item := range repo.data {
 		if item.ID != id {

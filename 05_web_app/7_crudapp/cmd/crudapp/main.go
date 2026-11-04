@@ -2,15 +2,15 @@ package main
 
 import (
 	"html/template"
+	"log"
 	"net/http"
 
-	"crudapp/pkg/handlers"
-	"crudapp/pkg/items"
-	"crudapp/pkg/middleware"
-	"crudapp/pkg/session"
-	"crudapp/pkg/user"
+	"crudapp/internal/handlers"
+	"crudapp/internal/items"
+	"crudapp/internal/middleware"
+	"crudapp/internal/session"
+	"crudapp/internal/user"
 
-	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 )
 
@@ -18,7 +18,10 @@ func main() {
 	templates := template.Must(template.ParseGlob("./templates/*"))
 
 	sm := session.NewSessionsManager()
-	zapLogger, _ := zap.NewProduction()
+	zapLogger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer zapLogger.Sync() // flushes buffer, if any
 	logger := zapLogger.Sugar()
 
@@ -38,17 +41,17 @@ func main() {
 		ItemsRepo: itemsRepo,
 	}
 
-	r := mux.NewRouter()
-	r.HandleFunc("/", userHandler.Index).Methods("GET")
-	r.HandleFunc("/login", userHandler.Login).Methods("POST")
-	r.HandleFunc("/logout", userHandler.Logout).Methods("POST")
+	r := http.NewServeMux()
+	r.HandleFunc("GET /", userHandler.Index)
+	r.HandleFunc("POST /login", userHandler.Login)
+	r.HandleFunc("POST /logout", userHandler.Logout)
 
-	r.HandleFunc("/items", handlers.List).Methods("GET")
-	r.HandleFunc("/items/new", handlers.AddForm).Methods("GET")
-	r.HandleFunc("/items/new", handlers.Add).Methods("POST")
-	r.HandleFunc("/items/{id}", handlers.Edit).Methods("GET")
-	r.HandleFunc("/items/{id}", handlers.Update).Methods("POST")
-	r.HandleFunc("/items/{id}", handlers.Delete).Methods("DELETE")
+	r.HandleFunc("GET /items", handlers.List)
+	r.HandleFunc("GET /items/new", handlers.AddForm)
+	r.HandleFunc("POST /items/new", handlers.Add)
+	r.HandleFunc("GET /items/{id}", handlers.Edit)
+	r.HandleFunc("POST /items/{id}", handlers.Update)
+	r.HandleFunc("DELETE /items/{id}", handlers.Delete)
 
 	mux := middleware.Auth(sm, r)
 	mux = middleware.AccessLog(logger, mux)
@@ -59,5 +62,8 @@ func main() {
 		"type", "START",
 		"addr", addr,
 	)
-	http.ListenAndServe(addr, mux)
+	if err := http.ListenAndServe(addr, mux); err != nil {
+		zapLogger.Sync()
+		log.Fatal(err)
+	}
 }
