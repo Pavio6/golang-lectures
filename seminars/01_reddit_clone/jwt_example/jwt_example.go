@@ -2,9 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
+	"log"
+	"mime"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -13,7 +16,8 @@ import (
 
 curl -X POST -H "Content-Type: application/json" -d '{"login": "rvasily", "password": "love"}' http://localhost:8080/login
 
-curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NDUwLCJsb2dpbiI6InJ2YXNpbHkiLCJuYW1lIjoiVmFzaWx5IFJvbWFub3YiLCJyb2xlIjoidXNlciJ9.Y0FJFm8fSbjc4nzBa1LHJSxNRRYp-chOZLr26sOJSgo" http://localhost:8080/profile
+# Copy data.token from the login response into the following request:
+curl -H "Authorization: Bearer <token-from-login-response>" http://localhost:8080/profile
 
 */
 
@@ -47,103 +51,111 @@ var (
 )
 
 func profilePage(w http.ResponseWriter, r *http.Request) {
-	authHeader := r.Header.Get("Authorization")
-
-	// Extract token from "Bearer <token>" format
-	inToken := ""
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		inToken = authHeader[7:]
+	parts := strings.Fields(r.Header.Get("Authorization"))
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		jsonError(w, http.StatusUnauthorized, "bad token")
+		return
 	}
 
 	claims := &Claims{}
-	token, err := jwt.ParseWithClaims(inToken, claims, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("bad sign method")
-		}
+	token, err := jwt.ParseWithClaims(parts[1], claims, func(token *jwt.Token) (any, error) {
 		return ExampleTokenSecret, nil
-	})
-	if err != nil {
-		jsonError(w, http.StatusUnauthorized, "bad token")
-		return
-	}
-	if !token.Valid {
+	}, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired(), jwt.WithIssuedAt())
+	if err != nil || !token.Valid {
 		jsonError(w, http.StatusUnauthorized, "bad token")
 		return
 	}
 
-	resp, _ := json.Marshal(map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"status": http.StatusOK,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"login": claims.Login,
 			"name":  claims.Name,
 			"role":  claims.Role,
 			"id":    claims.ID,
 		},
 	})
-	w.Write(resp)
-	w.Write([]byte("\n\n"))
 }
 
 func loginPage(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("Content-Type") != "application/json" {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
 		jsonError(w, http.StatusBadRequest, "unknown payload")
 		return
 	}
 
-	body, _ := io.ReadAll(r.Body)
-	r.Body.Close()
-
-	fd := &LoginForm{}
-	err := json.Unmarshal(body, fd)
-	if err != nil {
-		jsonError(w, http.StatusBadRequest, "cant unpack payload")
+	var form *LoginForm
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+	if err := decoder.Decode(&form); err != nil || form == nil {
+		jsonError(w, http.StatusBadRequest, "cannot decode payload")
+		return
+	}
+	// Reject trailing data and multiple JSON objects.
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		jsonError(w, http.StatusBadRequest, "cannot decode payload")
 		return
 	}
 
-	user, exist := users[fd.Login]
-	if !exist || fd.Password != ExamplePassword {
+	user, exist := users[form.Login]
+	if !exist || form.Password != ExamplePassword {
 		jsonError(w, http.StatusUnauthorized, "bad login or password")
 		return
 	}
 
 	// Create token with custom claims
+	now := time.Now()
 	claims := &Claims{
-		Login:            fd.Login,
-		Name:             user.FullName,
-		Role:             user.Role,
-		ID:               user.ID,
-		RegisteredClaims: jwt.RegisteredClaims{},
+		Login: form.Login,
+		Name:  user.FullName,
+		Role:  user.Role,
+		ID:    user.ID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
+		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(ExampleTokenSecret)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, err.Error())
+		log.Printf("sign token: %v", err)
+		jsonError(w, http.StatusInternalServerError, "cannot sign token")
 		return
 	}
 
-	resp, _ := json.Marshal(map[string]interface{}{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"status": http.StatusOK,
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"token": tokenString,
 		},
 	})
-	w.Write(resp)
-	w.Write([]byte("\n\n"))
 }
 
 func main() {
-	http.HandleFunc("/login", loginPage)
-	http.HandleFunc("/profile", profilePage)
-
-	fmt.Println("starting server at :8080")
-	http.ListenAndServe(":8080", nil)
+	log.Println("starting server at http://localhost:8080")
+	if err := http.ListenAndServe(":8080", newMux()); err != nil {
+		log.Fatal(err)
+	}
 }
 
-func jsonError(w io.Writer, status int, msg string) {
-	resp, _ := json.Marshal(map[string]interface{}{
+func newMux() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /login", loginPage)
+	mux.HandleFunc("GET /profile", profilePage)
+	return mux
+}
+
+func jsonError(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]any{
 		"status": status,
 		"error":  msg,
 	})
-	w.Write(resp)
+}
+
+func writeJSON(w http.ResponseWriter, status int, value any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(value); err != nil {
+		log.Printf("encode response: %v", err)
+	}
 }
