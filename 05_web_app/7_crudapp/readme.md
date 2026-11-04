@@ -1,15 +1,15 @@
-# README
+# CRUD app
 
-go mod init crudapp
-// go mod init github.com/rvasily/crudapp
-go build
-go mod download
-go mod verify
+```sh
 go mod tidy
+go build -o ./bin/crudapp ./cmd/crudapp
+go test -v ./...
+```
 
-go build  -o ./bin/crudapp ./cmd/crudapp
-go test -v -coverpkg=./... ./...
+Optional: vendor dependencies for an offline build.
 
+```sh
 go mod vendor
-go build -mod=vendor -o ./bin/myapp ./cmd/myapp
-go test -v -mod=vendor -coverpkg=./... ./...
+go build -mod=vendor -o ./bin/crudapp ./cmd/crudapp
+go test -v -mod=vendor ./...
+```

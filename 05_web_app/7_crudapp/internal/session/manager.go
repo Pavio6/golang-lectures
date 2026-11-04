@@ -8,19 +8,18 @@ import (
 
 type SessionsManager struct {
 	data map[string]*Session
-	mu   *sync.RWMutex
+	mu   sync.RWMutex
 }
 
 func NewSessionsManager() *SessionsManager {
 	return &SessionsManager{
 		data: make(map[string]*Session, 10),
-		mu:   &sync.RWMutex{},
 	}
 }
 
 func (sm *SessionsManager) Check(r *http.Request) (*Session, error) {
 	sessionCookie, err := r.Cookie("session_id")
-	if err == http.ErrNoCookie {
+	if err != nil {
 		return nil, ErrNoAuth
 	}
 
@@ -36,18 +35,24 @@ func (sm *SessionsManager) Check(r *http.Request) (*Session, error) {
 }
 
 func (sm *SessionsManager) Create(w http.ResponseWriter, userID uint32) (*Session, error) {
-	sess := NewSession(userID)
+	sess, err := NewSession(userID)
+	if err != nil {
+		return nil, err
+	}
 
 	sm.mu.Lock()
 	sm.data[sess.ID] = sess
 	sm.mu.Unlock()
 
 	cookie := &http.Cookie{
-		Name:    "session_id",
-		Value:   sess.ID,
-		Expires: time.Now().Add(90 * 24 * time.Hour),
-		Path:    "/",
+		Name:     "session_id",
+		Value:    sess.ID,
+		Expires:  time.Now().Add(90 * 24 * time.Hour),
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
 	}
+	// Secure is omitted because this teaching server runs over plain HTTP.
 	http.SetCookie(w, cookie)
 	return sess, nil
 }

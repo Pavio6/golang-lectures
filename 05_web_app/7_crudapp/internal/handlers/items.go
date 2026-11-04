@@ -6,10 +6,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"crudapp/pkg/items"
-	"crudapp/pkg/session"
+	"crudapp/internal/items"
+	"crudapp/internal/session"
 
-	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 	"go.uber.org/zap"
 )
@@ -47,7 +46,10 @@ func (h *ItemsHandler) AddForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ItemsHandler) Add(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, `Bad form`, http.StatusBadRequest)
+		return
+	}
 	item := new(items.Item)
 	decoder := schema.NewDecoder()
 	decoder.IgnoreUnknownKeys(true)
@@ -66,14 +68,13 @@ func (h *ItemsHandler) Add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.Logger.Infof("Insert with id LastInsertId: %v", lastID)
-	http.Redirect(w, r, "/", http.StatusFound)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (h *ItemsHandler) Edit(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
+	id, err := strconv.ParseUint(r.PathValue("id"), 10, 32)
 	if err != nil {
-		http.Error(w, `{"error": "bad id"}`, http.StatusBadGateway)
+		http.Error(w, `{"error": "bad id"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -95,14 +96,16 @@ func (h *ItemsHandler) Edit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ItemsHandler) Update(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
+	id, err := strconv.ParseUint(r.PathValue("id"), 10, 32)
 	if err != nil {
 		http.Error(w, `Bad id`, http.StatusBadRequest)
 		return
 	}
 
-	r.ParseForm()
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, `Bad form`, http.StatusBadRequest)
+		return
+	}
 	item := new(items.Item)
 	decoder := schema.NewDecoder()
 	decoder.IgnoreUnknownKeys(true)
@@ -121,14 +124,13 @@ func (h *ItemsHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	h.Logger.Infof("update: %v %v", item, ok)
 
-	http.Redirect(w, r, "/", http.StatusFound)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (h *ItemsHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
+	id, err := strconv.ParseUint(r.PathValue("id"), 10, 32)
 	if err != nil {
-		http.Error(w, `{"error": "bad id"}`, http.StatusBadGateway)
+		http.Error(w, `{"error": "bad id"}`, http.StatusBadRequest)
 		return
 	}
 

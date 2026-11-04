@@ -1,12 +1,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 )
 
-var client = http.Client{Timeout: time.Duration(time.Millisecond)}
+var client = http.Client{Timeout: time.Millisecond}
 
 type ResourceError struct {
 	URL string
@@ -21,42 +23,50 @@ func (re *ResourceError) Error() string {
 	)
 }
 
-// for errors.Unwrap
+// Unwrap is here, so others can access the underlying error with errors.Is or errors.As
 func (re *ResourceError) Unwrap() error {
 	return re.Err
 }
 
 func main() {
-	http.HandleFunc("/", handler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /", handler)
 
 	fmt.Println("starting server at :8080")
-	http.ListenAndServe(":8080", nil)
+
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	err := getRemoteResource()
 	if err != nil {
-		switch err.(type) {
-		case *ResourceError:
-			err := err.(*ResourceError)
-			fmt.Printf("resource %s err: %s\n", err.URL, err.Err)
-			http.Error(w, "remote resource error", 500)
-		default:
+		var resourceErr *ResourceError
+		if errors.As(err, &resourceErr) {
+			fmt.Printf("resource %s err: %s\n", resourceErr.URL, resourceErr.Err)
+			http.Error(w, "remote resource error", http.StatusInternalServerError)
+		} else {
 			fmt.Printf("internal error: %+v\n", err)
-			http.Error(w, "internal error", 500)
+			http.Error(w, "internal error", http.StatusInternalServerError)
 		}
 
 		return
 	}
 
-	w.Write([]byte("all is OK"))
+	fmt.Fprint(w, "all is OK")
 }
 
 func getRemoteResource() error {
 	url := "http://127.0.0.1:9999/pages?id=123"
-	_, err := client.Get(url)
+	resp, err := client.Get(url)
+
 	if err != nil {
 		return &ResourceError{URL: url, Err: err}
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return &ResourceError{URL: url, Err: fmt.Errorf("unexpected status %s", resp.Status)}
 	}
 
 	return nil

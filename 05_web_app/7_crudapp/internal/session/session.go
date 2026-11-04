@@ -12,27 +12,29 @@ type Session struct {
 	UserID uint32
 }
 
-func NewSession(userID uint32) *Session {
+func NewSession(userID uint32) (*Session, error) {
 	// лучше генерировать из заданного алфавита, но так писать меньше и для учебного примера ОК
 	randID := make([]byte, 16)
-	rand.Read(randID)
+	if _, err := rand.Read(randID); err != nil {
+		return nil, err
+	}
 
 	return &Session{
 		ID:     fmt.Sprintf("%x", randID),
 		UserID: userID,
-	}
+	}, nil
 }
 
 var (
-	ErrNoAuth = errors.New("No session found")
+	ErrNoAuth = errors.New("no session found")
 )
 
-type sessKey string
+type sessKey struct{}
 
-var SessionKey sessKey = "sessionKey"
+var sessionKey sessKey
 
 func SessionFromContext(ctx context.Context) (*Session, error) {
-	sess, ok := ctx.Value(SessionKey).(*Session)
+	sess, ok := ctx.Value(sessionKey).(*Session)
 	if !ok || sess == nil {
 		return nil, ErrNoAuth
 	}
@@ -40,5 +42,5 @@ func SessionFromContext(ctx context.Context) (*Session, error) {
 }
 
 func ContextWithSession(ctx context.Context, sess *Session) context.Context {
-	return context.WithValue(ctx, SessionKey, sess)
+	return context.WithValue(ctx, sessionKey, sess)
 }
