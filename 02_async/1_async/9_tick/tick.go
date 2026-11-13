@@ -19,18 +19,20 @@ func main() {
 	}
 	fmt.Println("total", i)
 
-	return
+	// return
 
 	// Не может быть остановлен и собран сборщиком мусора
 	// Используйте, если должен работать вечно
-	c := time.Tick(time.Second)
-	i = 0
-	for tickTime := range c {
-		i++
-		fmt.Println("step", i, "time", tickTime)
-		if i >= 5 {
-			break
-		}
-	}
+	// (но с Go 1.23 сборщик мусора умеет собирать все неиспользуемые тикеры, поэтому
+	// time.Tick потерял смысл)
 
+	// c := time.Tick(time.Second)
+	// i = 0
+	// for tickTime := range c {
+	// 	i++
+	// 	fmt.Println("step", i, "time", tickTime)
+	// 	if i >= 5 {
+	// 		break
+	// 	}
+	// }
 }

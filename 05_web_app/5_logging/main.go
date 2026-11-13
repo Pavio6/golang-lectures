@@ -9,7 +9,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"go.uber.org/zap"
 )
 
@@ -20,17 +19,16 @@ const (
 )
 
 type AccessLogger struct {
-	StdLogger    *log.Logger
-	StdSlogger   *slog.Logger
-	ZapLogger    *zap.SugaredLogger
-	LogrusLogger *logrus.Entry
+	StdLogger  *log.Logger
+	StdSlogger *slog.Logger
+	ZapLogger  *zap.SugaredLogger
 }
 
-func (ac *AccessLogger) accessLogMiddleware(next http.Handler) http.Handler {
+func (ac *AccessLogger) withLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		reqID := generateID()
-		w.Header().Add(requestIDHeader, reqID)
+		w.Header().Set(requestIDHeader, reqID)
 
 		next.ServeHTTP(w, r)
 
@@ -67,13 +65,6 @@ func (ac *AccessLogger) accessLogMiddleware(next http.Handler) http.Handler {
 			zap.String("url", r.URL.Path),
 			zap.Duration("work_time", time.Since(start)),
 		)
-
-		ac.LogrusLogger.WithFields(logrus.Fields{
-			"request_id":  reqID,
-			"method":      r.Method,
-			"remote_addr": r.RemoteAddr,
-			"work_time":   time.Since(start),
-		}).Info(r.URL.Path)
 	})
 }
 
@@ -129,14 +120,6 @@ func main() {
 		zap.Int("port", port),
 	)
 
-	// logrus
-	logrus.SetFormatter(&logrus.TextFormatter{DisableColors: true})
-	logrus.WithFields(logrus.Fields{
-		"logger": "LOGRUS",
-		"host":   addr,
-		"port":   port,
-	}).Info("Starting server")
-
 	accessLogOut := new(AccessLogger)
 
 	// std
@@ -152,17 +135,12 @@ func main() {
 	)
 	accessLogOut.ZapLogger = zapWithSugar
 
-	// logrus
-	logrusLogger := logrus.WithFields(logrus.Fields{
-		"mode":   "[access_log]",
-		"logger": "LOGRUS",
-	})
-	logrus.SetFormatter(&logrus.JSONFormatter{})
-	accessLogOut.LogrusLogger = logrusLogger
-
 	// server stuff
 	siteMux := http.NewServeMux()
-	siteMux.HandleFunc("/", mainPage)
-	siteHandler := accessLogOut.accessLogMiddleware(siteMux)
-	http.ListenAndServe(":8080", siteHandler)
+	siteMux.HandleFunc("GET /", mainPage)
+
+	if err := http.ListenAndServe(":8080", accessLogOut.withLogger(siteMux)); err != nil {
+		zapLogger.Sync()
+		log.Fatal(err)
+	}
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"crudapp/pkg/session"
+	"crudapp/internal/session"
 )
 
 var (

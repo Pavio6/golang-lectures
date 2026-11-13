@@ -5,6 +5,8 @@ import (
 	"net/http"
 )
 
+// http://localhost:8080/data/img/gopher.png
+
 func handler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	w.Write([]byte(`

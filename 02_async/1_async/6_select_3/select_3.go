@@ -15,6 +15,7 @@ func main() {
 			case <-cancelCh:
 				// Закрываем канал там, где пишем
 				// А что если много генераторов?
+				fmt.Println("close data ch")
 				close(dataCh)
 				return
 			case dataCh <- val:
@@ -28,6 +29,7 @@ func main() {
 		if curVal > 3 {
 			fmt.Println("send cancel")
 			cancelCh <- true
+
 			// Что если этот канал должен остановить множество генераторов?
 			// close(cancelCh)
 		}

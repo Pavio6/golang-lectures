@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const adminPrefix = "admin"
+
 func handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "URL:", r.URL.String())
 }
@@ -19,20 +21,17 @@ func adminPage2(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-
-	adminPrefix := "admin"
-
 	admin := http.NewServeMux()
 	admin.HandleFunc("/user", adminPage2)
 	admin.HandleFunc("/", adminPage)
 
-	admninHandler := http.StripPrefix(
+	adminHandler := http.StripPrefix(
 		"/"+adminPrefix,
 		admin,
 	)
 
 	mux := http.NewServeMux()
-	mux.Handle("/admin/", admninHandler)
+	mux.Handle("/admin/", adminHandler)
 	mux.HandleFunc("/", handler)
 
 	server := http.Server{

@@ -23,39 +23,48 @@ var upgrader = websocket.Upgrader{
 func main() {
 	tmpl := template.Must(template.ParseFiles("index.html"))
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		tmpl.Execute(w, nil)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		if err := tmpl.Execute(w, nil); err != nil {
+			log.Printf("render page: %v", err)
+		}
 	})
 
-	http.HandleFunc("/notifications", notificationsHandler)
+	mux.HandleFunc("GET /notifications", notificationsHandler)
 
 	fmt.Println("starting server at :8080")
-	http.ListenAndServe(":8080", nil)
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }
 
 func notificationsHandler(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("upgrade websocket: %v", err)
+		return
 	}
 
 	go sendNewMsgNotifications(ws)
 }
 
 func sendNewMsgNotifications(client *websocket.Conn) {
+	defer client.Close()
 	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
 	for {
+		<-ticker.C
 		w, err := client.NextWriter(websocket.TextMessage)
 		if err != nil {
-			ticker.Stop()
-			break
+			return
 		}
 
 		msg := newMessage()
-		w.Write(msg)
-		w.Close()
-
-		<-ticker.C
+		if _, err := w.Write(msg); err != nil {
+			w.Close()
+			return
+		}
+		if err := w.Close(); err != nil {
+			return
+		}
 	}
 }
 

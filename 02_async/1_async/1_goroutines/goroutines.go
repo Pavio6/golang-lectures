@@ -11,20 +11,20 @@ const (
 	goroutinesNum = 6
 )
 
-func doWork(th int) {
-	for j := 0; j < iterationsNum; j++ {
-		fmt.Printf(formatWork(th, j))
-		//runtime.Gosched()
-	}
-}
-
 func main() {
-	//runtime.GOMAXPROCS(1)
+	// runtime.GOMAXPROCS(1)
 	for i := 0; i < goroutinesNum; i++ {
 		go doWork(i)
 	}
 
 	time.Sleep(time.Second)
+}
+
+func doWork(th int) {
+	for j := 0; j < iterationsNum; j++ {
+		fmt.Printf(formatWork(th, j))
+		// runtime.Gosched()
+	}
 }
 
 func formatWork(in, j int) string {

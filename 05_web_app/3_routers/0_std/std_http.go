@@ -6,9 +6,8 @@ import (
 	"net/http"
 )
 
-// В go1.22 функционал стандартного роутера пакета net/http был расширен. В него добавили
-// поддержку HTTP-методов, хостов и доменов, а также шаблонизацию путей через плейсхолдеры.
-// Обратная совместимость при этом была сломана
+// Начиная с Go 1.22 ServeMux поддерживает методы и шаблоны путей.
+// Более специфичные шаблоны имеют приоритет.
 
 // curl -v -X GET -H "Content-Type: application/json" http://localhost:8080
 // curl -v -X PUT -H "Content-Type: application/json" http://localhost:8080/unknown_path
@@ -61,13 +60,11 @@ func main() {
 
 	r.HandleFunc("/", DefaultPage)
 
-	r.HandleFunc("/users", UserList)
-	r.HandleFunc("127.0.0.1/users", UserListForHost) // Наличие хоста повышает приоритет шаблона
+	r.HandleFunc("GET /users", UserList)
+	r.HandleFunc("GET 127.0.0.1/users", UserListForHost) // Наличие хоста повышает приоритет шаблона
 	// r.HandleFunc("/users/{path...}", LongUsers)
 
-	// До go1.22: r.HandleFunc("/users/", GetUpdateOrCreateUser)
-	// "/users/{id}" - матчит запросы из двух сегментов, начинающиеся на "/users/".
-	// Наличие метода повышает приоритет шаблона
+	// "/users/{id}" matches exactly one path segment after "/users/".
 	r.HandleFunc("GET /users/{id}", GetUser)
 	r.HandleFunc("PUT /users/{login}", UpdateUser)
 	r.HandleFunc("POST /users/{login}", CreateUser)
@@ -77,7 +74,7 @@ func main() {
 	r.HandleFunc("GET /users/{path...}", LongUsers) // Матчит запросы на "/users/..."
 
 	r.HandleFunc("GET /users/{path}/id", ID)
-	// r.HandleFunc("/{path}/id", ID) // Panic?
+	//r.HandleFunc("GET /{path}/id", ID) // Ambiguous with the other patterns.
 
 	fmt.Println("starting server at :8080")
 	log.Fatal(http.ListenAndServe(":8080", r))

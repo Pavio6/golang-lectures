@@ -1,79 +1,89 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
+	"errors"
+	"io"
+	"log"
 	"net/http"
-
-	// валидатор
-	"github.com/asaskevich/govalidator"
-
-	// парсинг параметров в структуру
-	"github.com/gorilla/schema"
+	"net/mail"
+	"strings"
+	"unicode/utf8"
 )
 
-// http://127.0.0.1:8080/?to=v.romanov@corp.mail.ru&priority=low&subject=Hello!&inner=ignored&id=12&flag=23
-
-type SendMessage struct {
-	Id        int    `valid:",optional"`
-	Priority  string `valid:"in(low|normal|high)"`
-	Recipient string `schema:"to" valid:"email"`
-	Subject   string `valid:"msgSubject"`
-	Inner     string `schema:"-" valid:"-"`
-	flag      int
+type sendMessageRequest struct {
+	ID        int    `json:"id,omitempty"`
+	Priority  string `json:"priority"`
+	Recipient string `json:"to"`
+	Subject   string `json:"subject"`
 }
 
+func (msg sendMessageRequest) validate() error {
+	switch msg.Priority {
+	case "low", "normal", "high":
+	default:
+		return errors.New("priority must be low, normal, or high")
+	}
+
+	address, err := mail.ParseAddress(msg.Recipient)
+	if err != nil || address.Address != msg.Recipient {
+		return errors.New("to must be a valid email address")
+	}
+
+	if n := utf8.RuneCountInString(strings.TrimSpace(msg.Subject)); n == 0 || n > 10 {
+		return errors.New("subject must contain between 1 and 10 characters")
+	}
+
+	return nil
+}
+
+//	curl -X POST http://localhost:8080/ -H 'Content-Type: application/json' \
+//	  -d '{"id":12,"priority":"low","to":"v.romanov@example.com","subject":"Hello!"}'
 func handler(w http.ResponseWriter, r *http.Request) {
+	// Limit the body size before decoding untrusted input.
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
-	w.Write([]byte("request " + r.URL.String() + "\n\n"))
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
 
-	msg := &SendMessage{}
-
-	decoder := schema.NewDecoder()
-	decoder.IgnoreUnknownKeys(true)
-	err := decoder.Decode(msg, r.URL.Query())
-	if err != nil {
-		fmt.Println(err)
-		http.Error(w, "internal", 500)
+	var msg sendMessageRequest
+	if err := decoder.Decode(&msg); err != nil {
+		writeDecodeError(w, err)
 		return
 	}
-	w.Write([]byte(fmt.Sprintf("Msg: %#v\n\n", msg)))
-
-	_, err = govalidator.ValidateStruct(msg)
-
-	if err != nil {
-		if allErrs, ok := err.(govalidator.Errors); ok {
-			for _, fld := range allErrs.Errors() {
-				data := []byte(fmt.Sprintf("field: %#v\n\n", fld))
-				w.Write(data)
-			}
+	// Require exactly one JSON value in the request body.
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			err = errors.New("request must contain a single JSON value")
 		}
-
-		w.Write([]byte(fmt.Sprintf("error: %s\n\n", err)))
-	} else {
-		w.Write([]byte(fmt.Sprintf("msg is correct\n\n")))
+		writeDecodeError(w, err)
+		return
 	}
+
+	if err := msg.validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(msg); err != nil {
+		log.Printf("encode response: %v", err)
+	}
+}
+
+func writeDecodeError(w http.ResponseWriter, err error) {
+	var maxBytesErr *http.MaxBytesError
+	if errors.As(err, &maxBytesErr) {
+		http.Error(w, "request body is too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+	http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 }
 
 func main() {
-	http.HandleFunc("/", handler)
-	fmt.Println("starting server at :8080")
-	http.ListenAndServe(":8080", nil)
-}
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /", handler)
 
-func init() {
-	govalidator.CustomTypeTagMap.Set(
-		"msgSubject",
-		govalidator.CustomTypeValidator(func(i interface{}, o interface{}) bool {
-			subject, ok := i.(string)
-			if !ok {
-				return false
-			}
-
-			if len(subject) == 0 || len(subject) > 10 {
-				return false
-			}
-
-			return true
-		}),
-	)
+	log.Println("starting server at :8080")
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }

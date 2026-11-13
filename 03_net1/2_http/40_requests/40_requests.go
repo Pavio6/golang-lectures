@@ -35,7 +35,7 @@ func runGet() {
 	requestURL := "http://127.0.0.1:8080/?param=123&param2=test"
 	resp, err := http.Get(requestURL)
 	if err != nil {
-		fmt.Println("error happend", err)
+		fmt.Println("error happened", err)
 		return
 	}
 	defer resp.Body.Close() // важный пункт!
@@ -58,7 +58,7 @@ func runGetFullReq() {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Println("error happend", err)
+		fmt.Println("error happened", err)
 		return
 	}
 	defer resp.Body.Close() // важный пункт!
@@ -96,7 +96,7 @@ func runTransportAndPost() {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("error happend", err)
+		fmt.Println("error happened", err)
 		return
 	}
 	defer resp.Body.Close() // важный пункт!

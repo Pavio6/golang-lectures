@@ -3,48 +3,56 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 )
 
 var (
-	client = http.Client{Timeout: time.Duration(time.Millisecond)}
+	client = http.Client{Timeout: time.Millisecond}
 
 	ErrResource = errors.New("resource error")
 )
 
 func main() {
-	http.HandleFunc("/", handler)
-	http.HandleFunc("/is", handlerIs)
-
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /", handler)
+	mux.HandleFunc("GET /is", handlerIs)
 	fmt.Println("starting server at :8080")
-	http.ListenAndServe(":8080", nil)
+
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	err := getRemoteResource()
-	// err := getRemoteResourceAndSomeWork()
 	if err != nil {
 		fmt.Printf("error happened: %+v\n", err)
 
 		switch err { // switch cannot unwrap errors
 		case ErrResource:
-			http.Error(w, "remote resource error", 500)
+			http.Error(w, "remote resource error", http.StatusInternalServerError)
 		default:
-			http.Error(w, "internal error", 500)
+			http.Error(w, "internal error", http.StatusInternalServerError)
 		}
 
 		return
 	}
 
-	w.Write([]byte("all is OK"))
+	fmt.Fprint(w, "all is OK")
 }
 
 func getRemoteResource() error {
 	url := "http://127.0.0.1:9999/pages?id=123"
-	_, err := client.Get(url)
+	resp, err := client.Get(url)
+
 	if err != nil {
 		return ErrResource
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("%w: unexpected status %s", ErrResource, resp.Status)
 	}
 
 	return nil
@@ -53,15 +61,15 @@ func getRemoteResource() error {
 func handlerIs(w http.ResponseWriter, r *http.Request) {
 	err := getRemoteResourceAndSomeWork()
 	if errors.Is(err, ErrResource) {
-		http.Error(w, "remote resource error", 500)
+		http.Error(w, "remote resource error", http.StatusInternalServerError)
 		return
 	}
 	if err != nil {
-		http.Error(w, "internal error", 500)
+		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
-	w.Write([]byte("all is OK"))
+	fmt.Fprint(w, "all is OK")
 }
 
 func getRemoteResourceAndSomeWork() error {

@@ -17,7 +17,7 @@ func NewUser(id uint32, login string) *User {
 }
 
 func (u *User) IsOdd() bool {
-	return u.ID%2 == 0
+	return u.ID%2 != 0
 }
 
 func GetFirstName() string {
