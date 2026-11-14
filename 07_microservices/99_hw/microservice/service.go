@@ -25,8 +25,8 @@ type microservice struct {
 }
 
 type logSubscription struct {
-	events   chan *Event
-	overflow chan struct{}
+	events []*Event
+	ready  chan struct{}
 }
 
 func StartMyMicroservice(ctx context.Context, addr string, acl string) error {
@@ -79,12 +79,10 @@ func (s *microservice) record(ctx context.Context, consumer, method string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for sub := range s.logs {
+		sub.events = append(sub.events, event)
 		select {
-		case sub.events <- event:
+		case sub.ready <- struct{}{}:
 		default:
-			// Disconnect a slow subscriber instead of blocking unrelated RPCs.
-			delete(s.logs, sub)
-			close(sub.overflow)
 		}
 	}
 	for stat := range s.stats {
@@ -116,7 +114,7 @@ func (s *microservice) Add(context.Context, *Nothing) (*Nothing, error)   { retu
 func (s *microservice) Test(context.Context, *Nothing) (*Nothing, error)  { return &Nothing{}, nil }
 
 func (s *microservice) Logging(_ *Nothing, stream Admin_LoggingServer) error {
-	sub := &logSubscription{events: make(chan *Event, 256), overflow: make(chan struct{})}
+	sub := &logSubscription{ready: make(chan struct{}, 1)}
 	s.mu.Lock()
 	s.logs[sub] = struct{}{}
 	s.mu.Unlock()
@@ -125,11 +123,18 @@ func (s *microservice) Logging(_ *Nothing, stream Admin_LoggingServer) error {
 		select {
 		case <-stream.Context().Done():
 			return stream.Context().Err()
-		case <-sub.overflow:
-			return status.Error(codes.ResourceExhausted, "logging subscriber is too slow")
-		case event := <-sub.events:
-			if err := stream.Send(event); err != nil {
-				return err
+		case <-sub.ready:
+			s.mu.Lock()
+			events := sub.events
+			sub.events = nil
+			s.mu.Unlock()
+			for _, event := range events {
+				if err := stream.Context().Err(); err != nil {
+					return err
+				}
+				if err := stream.Send(event); err != nil {
+					return err
+				}
 			}
 		}
 	}
